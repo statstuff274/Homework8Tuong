@@ -78,8 +78,8 @@ as.list(unique(bikes$'Functioning Day'))
 
 ```{r}
 # Using lubridate, we're reformmating the date to be m/d/y. First we use as.Date to parse the dates and allow them to be readable in R then we reformat them as m/d/y.
-bikes$Date <- as.Date((bikes$Date), '%d/%m/%Y')
-bikes$Date <- format(bikes$Date, '%m/%d/%Y')
+bikes <- bikes %>%
+  mutate(Date = dmy(Date))
 ```
 
 > 4.  Now we're going to change the categorical variables to have a class of factor. This'll allow us to use the factors/levels of these variables in statistical modeling for us to better understand how these different levels are affected.
@@ -126,7 +126,7 @@ bike_rental_summary_functional <- bikes %>%
 bike_rental_summary_functional
 ```
 
-> 7. In order to simplify our previous analysis and initial bikes data set, we're going to summarize across the hours so each day has one observation associated with it along with each weather condition. We'll do this by summing up the total amount of bikes rented per hour per day to return This daily rental summary gives us a much better grasp of daily statistics compared to the initial bike data which filtered the data per each hour of the day for bike rentals, whereas this new summary combines all of those hour values into one day to give us a total amount of bikes rented per day. We continue to filter by a functioning day of yes so it doesn't skew our summary of statistics regarding bike rental data and the rest of the numerical variables. Additionally, when filtering out functioning day 'No', the total data goes from 365 days to 353 days indicating that there were 12 days that no bikes were rented out to people.
+> 7.  In order to simplify our previous analysis and initial bikes data set, we're going to summarize across the hours so each day has one observation associated with it along with each weather condition. We'll do this by summing up the total amount of bikes rented per hour per day to return This daily rental summary gives us a much better grasp of daily statistics compared to the initial bike data which filtered the data per each hour of the day for bike rentals, whereas this new summary combines all of those hour values into one day to give us a total amount of bikes rented per day. We continue to filter by a functioning day of yes so it doesn't skew our summary of statistics regarding bike rental data and the rest of the numerical variables. Additionally, when filtering out functioning day 'No', the total data goes from 365 days to 353 days indicating that there were 12 days that no bikes were rented out to people.
 
 ```{r}
 daily_rental_summary <- bikes %>%
@@ -146,15 +146,47 @@ daily_rental_summary <- bikes %>%
 daily_rental_summary
 ```
 
-> 8. Now with this new analysis, we're going to create a summary statistic of our daily rental summary to explore some data. As seen below, there are a total of 353 observations, denoted by 'date' in this data set. Of those dates 81 of them are from the Autumn, 90 from the Winter, 90 from the Spring, and 92 from the Summer. Out of the 353 days, 17 of those days are defined as holidays and 336 are not considered holidays. There's a handful of data to go through for the weather conditions, but we'll create a correlation matrix and some plots below to explore those.
+> 8.  Now with this new analysis, we're going to create a summary statistic of our daily rental summary to explore some data. As seen below, there are a total of 353 observations, denoted by 'date' in this data set. Of those dates 81 of them are from the Autumn, 90 from the Winter, 90 from the Spring, and 92 from the Summer. Out of the 353 days, 17 of those days are defined as holidays and 336 are not considered holidays. There's a handful of data to go through for the weather conditions, but we'll create a correlation matrix and some plots below to explore those.
 
 ```{r}
 # Created a summary statistics for the daily_rental_summary
 summary(daily_rental_summary)
 ```
 
-> Below is the reported correlation matrix for all of the numeric variables; since there are so many, I will pick and choose a handful of correlations (relationship between variables) related to bike_count_sum to explore. Looking at bike_count_sum and its correlations in the first column, we can see that there are some strong positive correlations (as one variable increases, the other also increases), mainly bike_count_sum and temperature with a correlation of 0.753 and bike_count_sum and solar_radiation with a correlation of 0.736. From the first observation, we can see that higher temperatures are associated with a higher number of bike rentals; bike riders enjoy good weather and warmer temperatures when riding bikes. The second correlation shows that higher solar radiation, i.e. more sun, also correlates with more bike rentals. 
-> Additionally, there are many weak negative correlations (as one variable increases, the other one one decreases) with bike_count such as: wind_speed_mean (-0.193), rainfall_mm_mean (-0.237), and snowfall_mm_mean (-0.265). Bike rental counts are expected to be negatively associated with these weather variables because high wind speeds, rainfall, and snowfall affect biking conditions and enviroments, and as a result tend to reduce bike rental rates.
+> Below I have created the first plot, a scatter plot to look at the relationship between bike count rentals and temperature across seasons. The plot shows a strong positive correlation between these two variables, as one variable increases, the other increases. As temperature increases, bike rentals also increases. There are a cluster of data points where the temperature is below 10 degrees celcius with under 10,000 bike rentals per day; those data points most likely represent days colder days with potential less favorable biking conditions, as seen, denoted by the winter data points. Then there is a cluster of data points from 20 to 25 degrees celcius with more than 30,000 bike rentals a day; that cluster represents and shows that perhaps bike riders enjoy more warm weather, denoted by a mix of the Spring, Autumn, and Summer data points. Additionally, the data points are much more spread from 10 to 30 degrees celcius, perhaps indicating that people enjoy riding in more warm weather. However, there are also days where the temperatures are higher but bike rentals are low... this could be due to other weather conditions like some rainfall, wind speeds, holidays, etc.
+
+```{r}
+# Created a scatterplot to explore
+scatter_plot <- ggplot(daily_rental_summary,
+                    aes(x = temperature_c_mean, y = bike_count_sum, color = seasons)) +
+                  geom_jitter(width = 0.2, alpha = 0.6) +
+                  ggtitle(label = "The Relationship between Bike Count Rental \n and Temperature (C) across Seasons",
+                          subtitle = "Scatter Plot") +
+                  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+                        plot.subtitle = element_text(hjust = 0.5)) +
+                  labs(x = "Temperature \n (in Celcius)", 
+                       y = "Bike Rentals \n (bikes rented per day)") +
+                  scale_fill_discrete("Temperature")
+scatter_plot
+```
+
+> For biking novices like myself, weather conditions that affect biking such as rainfall, snowfall, etc. are apparent, which is I'm interested in how visibility may affect bike rentals. Below I have created a plot between visibility and bike rentals across seasons and faceted by holidays. Upon observation there is a slight positive correlation on non-holidays with more rentals based on more visibility. For the holiday facet, there is not much of a pattern with rentals being spread across the entire range of visibility perhaps showcasing that visibility doesn't affect bike rental rate as much on holidays. When looking at both holiday and non-holiday data, Summer and Autumn months produce a higher number of bike rentals compared to Winter and Spring months. Summer months show the highest number of rentals on non-holidays from 500m to 2,000m indicating that summer weather encourages biking regardless of the visibility. In conclusion, the higher the visibility, the more bike rentals there are as the plots showcase a strong positive relationship between the two variables.
+
+```{r}
+facet_plot <- ggplot(daily_rental_summary,
+                    aes(x = visibility_mean, y = bike_count_sum, color = seasons)) + 
+                  geom_jitter(width = 0.2, alpha = 0.6) +
+                  facet_wrap(~ holiday) +
+                  ggtitle(label = "The Relationship between Bike Count Rental \n and Visibility (by 10m) across Seasons with Holiday facet",
+                          subtitle = "Scatter Plot") +
+                  theme(plot.title = element_text(hjust = 0.5, face = "bold"),
+                        plot.subtitle = element_text(hjust = 0.5)) +
+                  labs(x = "Visibility \n (by 10m)", 
+                       y = "Bike Rentals \n (bikes rented per day)")
+facet_plot
+```
+
+> Next is the reported correlation matrix for all of the numeric variables; since there are so many, I will pick and choose a handful of correlations (relationship between variables) related to bike_count_sum to explore. Looking at bike_count_sum and its correlations in the first column, we can see that there are some strong positive correlations (as one variable increases, the other also increases), mainly bike_count_sum and temperature with a correlation of 0.753 and bike_count_sum and solar_radiation with a correlation of 0.736. From the first observation, we can see that higher temperatures are associated with a higher number of bike rentals; bike riders enjoy good weather and warmer temperatures when riding bikes. This supported our first scatterplot as we a strong positive correlation from the plot. The second correlation shows that higher solar radiation, i.e. more sun, also correlates with more bike rentals. Additionally, there are many weak negative correlations (as one variable increases, the other one one decreases) with bike_count such as: wind_speed_mean (-0.193), rainfall_mm_mean (-0.237), and snowfall_mm_mean (-0.265). Bike rental counts are expected to be negatively associated with these weather variables because high wind speeds, rainfall, and snowfall affect biking conditions and enviroments, and as a result tend to reduce bike rental rates.
 
 ```{r}
 # Created a filtered data frame to only show numeric variables to create correlation matrix
@@ -169,9 +201,171 @@ num_cor_matrix <- numeric_daily_rental_summary %>%
 num_cor_matrix
 ```
 
+### Split the data
+
+> For this next section, we'll be splitting the data: 75% of the data into the training set and 25% of it into the test set. We'll also stratify the data by seasons. Additionally, on the training set we'll create a 10 fold CV split, which randomly splits the data into V groups of roughly equal size ("folds").
 
 ```{r}
+# Split the data
+set.seed(123)
+bike_split <- initial_split(daily_rental_summary, prop = 3/4, strata = seasons)
+train_data <- training(bike_split)
+test_data <- testing(bike_split)
+```
 
+```{r}
+# Created a 10 fold CV split
+cv_folds_10 <- vfold_cv(data = train_data, v = 10)
+```
+
+### Fitting MLR Models
+
+> Now we're going to work on creating the recipes!
+
+-   First recipe!
+
+> Here we're going to fix up the date variable a bit, standardize the numeric variables, and create dummy variables for the seasons, holiday, and our new day type!
+
+```{r}
+# Creating the first recipe
+recipe_1 <- recipe(bike_count_sum ~ ., data = train_data) %>%
+  step_date(date, features = "dow") %>% # Used to extract day of week
+  step_rm(date) %>%
+  step_mutate(day_type = factor(if_else(date_dow %in% c("Sat", "Sun"), "weekend", "weekday"))) %>% # Creating day_type to categorical variable with 2 levels: weekend and weekday
+  step_rm(date_dow) %>% # Used as a general variable filter 
+  # step_rm(dow_day) %>% # Removed the intermediate variable created
+  step_normalize(all_numeric()) %>% # Standardizes all numeric variables
+  step_dummy(seasons, holiday, day_type) # Created dummy variables
+```
+
+```{r}
+# Checking recipe
+prep_recipe1 <- recipe_1 %>% 
+  prep(training = train_data)
+
+baked_data1 <- bake(prep_recipe1, new_data = NULL)
+
+head(baked_data1)
+```
+
+
+-   Second recipe!
+
+> Now we're going to follow the same steps as the first recipe and add interactions between seasons and holiday, seasons and temp, temp and rainfall.
+
+```{r}
+# Creating the second recipe
+recipe_2 <- recipe("bike_count_sum" ~ ., data = train_data) %>%
+  step_date(date, features = "dow") %>% # Used to extract day of week
+  step_rm(date) %>%
+  step_mutate(day_type = factor(if_else(date_dow %in% c("Sat", "Sun"), "weekend", "weekday"))) %>% # Creating day_type to categorical variable with 2 levels: weekend and weekday
+  step_rm(date_dow) %>% # Used as a general variable filter 
+  # step_rm(dow_day) %>% # Removed the intermediate variable created
+  step_normalize(all_numeric()) %>% # Standardizes all numeric variables
+  step_dummy(seasons, holiday, day_type) %>% # Created dummy variables # Created dummy variables
+  step_interact(~ starts_with("seasons"):holiday_No.Holiday) %>% 
+                  step_interact(~ starts_with("seasons"):temperature_c_mean) %>% 
+                  step_interact(~ temperature_c_mean:rainfall_mm_sum) # Created for the interactions
+```
+
+```{r}
+# Checking recipe 2
+prep_recipe2 <- recipe_2 %>% 
+  prep(training = train_data)
+
+baked_data2 <- bake(prep_recipe2, new_data = NULL)
+
+head(baked_data2)
+```
+
+
+-   Third recipe!
+
+> Now we're going to follow the same steps as the second recipe and add quadratic terms for each numeric predictor
+
+```{r}
+# Creating the third recipe
+recipe_3 <- recipe(bike_count_sum ~ ., data = train_data) %>%
+  step_date(date, features = "dow") %>% # Used to extract day of week
+  step_rm(date) %>%
+  step_mutate(day_type = factor(if_else(date_dow %in% c("Sat", "Sun"), "weekend", "weekday"))) %>% # Creating day_type to categorical variable with 2 levels: weekend and weekday
+  step_rm(date_dow) %>% # Used as a general variable filter 
+  # step_rm(dow_day) %>% # Removed the intermediate variable created
+  step_normalize(all_numeric()) %>% # Standardizes all numeric variables
+  step_dummy(seasons, holiday, day_type) %>% # Created dummy variables # Created dummy variables
+  step_interact(~ starts_with("seasons"):holiday_No.Holiday) %>% 
+                  step_interact(~ starts_with("seasons"):temperature_c_mean) %>% 
+                  step_interact(~ temperature_c_mean:rainfall_mm_sum) %>% # Created for the interactions
+  step_poly(rainfall_mm_sum, snowfall_cm_sum, temperature_c_mean, humidity_percent_mean, wind_speed_mean, visibility_mean, dew_point_temp_c_mean, solar_radiation_mean, rainfall_mm_mean, snowfall_cm_mean, degree = 2)
+
+```
+
+```{r}
+# Checking recipe 3
+prep_recipe3 <- recipe_3 %>% 
+  prep(training = train_data)
+
+baked_data3 <- bake(prep_recipe3, new_data = NULL)
+
+head(baked_data3)
+```
+
+
+### Fitting MLR Model
+
+> Now we set up our linear model to use the lm engine and fit the models accordingly.
+
+```{r}
+# Specifying linear model
+bike_lm <- linear_reg() %>%
+  set_engine("lm")
+
+# Creating work flows for each recipe
+recipe_wf1 <- workflow() %>%
+  add_recipe(recipe_1) %>%
+  add_model(bike_lm)
+
+recipe_wf2 <- workflow() %>%
+  add_recipe(recipe_2) %>%
+  add_model(bike_lm)
+
+recipe_wf3 <- workflow() %>%
+  add_recipe(recipe_3) %>%
+  add_model(bike_lm)
+
+# Fitting the models using 10 fold CV via fit_resamples()
+recipe_fit1 <- recipe_wf1 %>%
+  fit_resamples(cv_folds_10)
+
+recipe_fit2 <- recipe_wf2 %>%
+  fit_resamples(cv_folds_10)
+
+recipe_fit3 <- recipe_wf3 %>%
+  fit_resamples(cv_folds_10)
+
+# Binding samples together for best model
+rbind(recipe_fit1 %>% collect_metrics(),
+      recipe_fit2 %>% collect_metrics(),
+      recipe_fit3 %>% collect_metrics())
+```
+
+> As the final steps we'll use our best model to fit the model on the entire training data set, compute the RMSE, and obtain the final model.
+
+```{r}
+# Assigning the best model
+best_model <- 
+  
+# Using last_fit on full training data
+entire_training <- last_fit(best_model, split = bike_split)
+
+# Check RMSE
+final_data <- collect_metrics(entire_training)
+final_data
+
+final_model_coefficients <- entire_training %>%
+  extract_fit_parsnip() %>%
+  tidy()
+final_model_coefficients
 ```
 
 
@@ -179,21 +373,14 @@ num_cor_matrix
 
 
 
-1.  check for missingness
-2.  Check the column types and the values within the columns to make sure they make sense (basic summary stats for numeric columns and check the unique values for the categorical variables).
-3.  Convert the Date column into an actual date (if need be). Recall the lubridate package.
-4.  Turn the character variables (Seasons, Holiday, and Functioning Day) into factors.
-5.  Lastly, rename the all the variables to have easy to use names (I use lower snake case but whatever you’d like is fine)
-6.  Create summary statistics (especially related to the bike rental count). These should be done across your categorical variables as well. You should notice something about the Functioning Day variable. Subset the data appropriately based on that.
-7. To simplify our analysis, we’ll summarize across the hours so that each day has one observation
-associated with it.
-• (I’m using my new names here. Your names may not match and that’s ok!) Let’s group_by()
-the date, seasons, and holiday variables.
-• Find the sum of the bike_count, rainfall, and snowfall variables
-• Find the mean of all the weather related variables.
-• This will be our new data that we’ll analyze!
-8. Recreate your basic summary stats and then create some plots to explore relationships. Report correlation
-between your numeric variables as well.
+
+
+
+
+
+
+
+
 
 ```{r}
 
@@ -211,6 +398,3 @@ bikes <- bikes %>%
 bikes <- bikes %>%
   clean_names()
 ```
-
-
-
