@@ -1,0 +1,216 @@
+---
+title: "Week 8 - Basic Modeling Practice"
+author: "John Tuong"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## [Basic Modeling Practice]{.underline}
+
+> The purpose of this assignment is to create an EDA, exploratory data analysis, document for a data set about Seoul Bikes. We do this in order to better understand our data. The document will go through the following:
+
+-   Checking the data.
+-   Splitting the data.
+-   Fitting MLR models.
+
+> Note: Items are numbered for ease of grading; regardless, the document is still to be read in narrative form.
+
+### [Checking the data]{.underline}
+
+> Staring off, we're going to install and load the necessary packages to create the EDA. Then we'll read in the data.
+
+```{r}
+# Installed packages
+install.packages("tidyverse")
+install.packages("tidymodels") # For use of tidymodel functions
+install.packages("lubridate")
+install.packages("janitor")
+```
+
+```{r}
+# Loading in libraries
+library(tidyverse)
+library(tidymodels)  
+library(lubridate)
+library(janitor)
+library(readr)  
+```
+
+```{r}
+# Read in data
+bikes <- readr::read_csv("https://www4.stat.ncsu.edu/~online/datasets/SeoulBikeData.csv", locale = locale(encoding = "latin1"))
+bikes
+```
+
+> 1.  Next we're going to check for missingness within our data set. As seen below, there are no columns missing any values or data, so we can move forward with continuing to check the data.
+
+```{r}
+# Checked for missingness - to see if there are any missing values in the data set.
+missingnesscheck <- is.na(bikes) %>% colSums()
+missingnesscheck
+```
+
+> 2.  Now we'll check the column types and their values to ensure it makes sense. We'll do a basic summary of statistics for numeric columns and then check for the unique values of the categorical variables.
+>     -   Using the str function, when checking for the column types and values, it does indicate that the variables contain the correct column types and values accordingly. There are a total of 14 variables: 10 are numeric types (Rented Bike Count, Hour, Temperature, Humidity, Wind speed, Visibility, Dew point temperature, Solar Radiation, Rainfall, Snowfall) and 4 are character types (Date, Seasons, Holidays, Functioning Day).
+>     -   Using the summary function we selected numeric columns to create summary statistics for, which include the minimum, 1st quartile, median, mean, 3rd quartile, and maximum. These summary statistics give us some insight regarding weather conditions and total bike rentals.
+>     -   Using as.list, we're able to collect each unique value of the categorical variables.
+>         -   Season levels contain the four seasons: Spring, Summer, Fall and Winter.
+>         -   Holiday levels contain: Holiday and No Holiday.
+>         -   Functioning Day levels contain: Yes and No.
+
+```{r}
+# Checked for  each variable's internal structure, denoting the data type of the variables.
+str(bikes)
+
+# Created a basic summary of statistics for numeric columns by only selecting numerical variables
+summary(select(bikes, -Date, -Seasons, -Holiday, -'Functioning Day'))
+
+# Obtained a list of unique levels/values for each categorical variable
+as.list(unique(bikes$Date))
+as.list(unique(bikes$Seasons))
+as.list(unique(bikes$Holiday))
+as.list(unique(bikes$'Functioning Day'))
+```
+
+> 3.  Next we'll convert the Date column into month/day/year to more easily read and viewed the data set.
+
+```{r}
+# Using lubridate, we're reformmating the date to be m/d/y. First we use as.Date to parse the dates and allow them to be readable in R then we reformat them as m/d/y.
+bikes$Date <- as.Date((bikes$Date), '%d/%m/%Y')
+bikes$Date <- format(bikes$Date, '%m/%d/%Y')
+```
+
+> 4.  Now we're going to change the categorical variables to have a class of factor. This'll allow us to use the factors/levels of these variables in statistical modeling for us to better understand how these different levels are affected.
+
+```{r}
+# Used mutate to change the categorical variable class characters to factors.
+
+bikes <- bikes %>%
+  mutate(Seasons = as.factor(Seasons),
+         Holiday = as.factor(Holiday),
+         `Functioning Day` = as.factor(`Functioning Day`))
+```
+
+> 5.  Last, we're going rename all of the variables to have easy names to reference. Using the clean_names function, this'll make it easier for us to reference in our later queries due to the universal naming convention.
+
+```{r}
+# Used clean_names function from the janitor package to lowercase and insert '_' names for all columns. 
+bikes <- bikes %>%
+  clean_names()
+```
+
+> 6.  Now that our data is clean up, we're going to create summary statistics about bike rental count across our categorical variables. When creating the first summary statistics for bike rentals, bike functioning day that equaled no contained no information to find a statistic on because no bikes were rented on those days. As a result, we created another summary filtering to only keep where bike functioning day equaled to yes.
+
+```{r}
+# Created a bike rental summary grouped by seasons, holiday, and functioning_day
+bike_rental_summary <- bikes %>%
+  group_by(seasons, holiday, functioning_day) %>%
+  summarise(bike_rental_min = min(rented_bike_count),
+               bike_rental_median = median(rented_bike_count),
+               bike_rental_max = max(rented_bike_count),
+               bike_rental_mean = mean(rented_bike_count),
+               bike_rental_sd = sd(rented_bike_count))
+bike_rental_summary
+
+# Further subsetted where functioning day is yes
+bike_rental_summary_functional <- bikes %>%
+  filter(functioning_day == "Yes") %>%
+  group_by(seasons, holiday, functioning_day) %>%
+  summarise(bike_rental_min = min(rented_bike_count),
+               bike_rental_median = median(rented_bike_count),
+               bike_rental_max = max(rented_bike_count),
+               bike_rental_mean = mean(rented_bike_count),
+               bike_rental_sd = sd(rented_bike_count))
+bike_rental_summary_functional
+```
+
+> 7. In order to simplify our previous analysis and initial bikes data set, we're going to summarize across the hours so each day has one observation associated with it along with each weather condition. We'll do this by summing up the total amount of bikes rented per hour per day to return This daily rental summary gives us a much better grasp of daily statistics compared to the initial bike data which filtered the data per each hour of the day for bike rentals, whereas this new summary combines all of those hour values into one day to give us a total amount of bikes rented per day. We continue to filter by a functioning day of yes so it doesn't skew our summary of statistics regarding bike rental data and the rest of the numerical variables. Additionally, when filtering out functioning day 'No', the total data goes from 365 days to 353 days indicating that there were 12 days that no bikes were rented out to people.
+
+```{r}
+daily_rental_summary <- bikes %>%
+  filter(functioning_day == "Yes") %>%
+  group_by(date, seasons, holiday) %>%
+  summarise(bike_count_sum = sum(rented_bike_count),
+               rainfall_mm_sum = sum(rainfall_mm),
+               snowfall_cm_sum = sum(snowfall_cm),
+               temperature_c_mean = mean(temperature_c),
+               humidity_percent_mean = mean(humidity_percent),
+               wind_speed_mean = mean(wind_speed_m_s),
+               visibility_mean = mean(visibility_10m),
+               dew_point_temp_c_mean = mean(dew_point_temperature_c),
+               solar_radiation_mean = mean(solar_radiation_mj_m2),
+               rainfall_mm_mean = mean(rainfall_mm),
+               snowfall_cm_mean = mean(snowfall_cm))
+daily_rental_summary
+```
+
+> 8. Now with this new analysis, we're going to create a summary statistic of our daily rental summary to explore some data. As seen below, there are a total of 353 observations, denoted by 'date' in this data set. Of those dates 81 of them are from the Autumn, 90 from the Winter, 90 from the Spring, and 92 from the Summer. Out of the 353 days, 17 of those days are defined as holidays and 336 are not considered holidays. There's a handful of data to go through for the weather conditions, but we'll create a correlation matrix and some plots below to explore those.
+
+```{r}
+# Created a summary statistics for the daily_rental_summary
+summary(daily_rental_summary)
+```
+
+> Below is the reported correlation matrix for all of the numeric variables; since there are so many, I will pick and choose a handful of correlations (relationship between variables) related to bike_count_sum to explore. Looking at bike_count_sum and its correlations in the first column, we can see that there are some strong positive correlations (as one variable increases, the other also increases), mainly bike_count_sum and temperature with a correlation of 0.753 and bike_count_sum and solar_radiation with a correlation of 0.736. From the first observation, we can see that higher temperatures are associated with a higher number of bike rentals; bike riders enjoy good weather and warmer temperatures when riding bikes. The second correlation shows that higher solar radiation, i.e. more sun, also correlates with more bike rentals. 
+> Additionally, there are many weak negative correlations (as one variable increases, the other one one decreases) with bike_count such as: wind_speed_mean (-0.193), rainfall_mm_mean (-0.237), and snowfall_mm_mean (-0.265). Bike rental counts are expected to be negatively associated with these weather variables because high wind speeds, rainfall, and snowfall affect biking conditions and enviroments, and as a result tend to reduce bike rental rates.
+
+```{r}
+# Created a filtered data frame to only show numeric variables to create correlation matrix
+numeric_daily_rental_summary <- daily_rental_summary %>%
+  ungroup() %>%
+  select(where(is.numeric)) 
+numeric_daily_rental_summary
+
+# Referenced previously created filtered data frame to create a correlation matrix between all of the numeric variables
+num_cor_matrix <- numeric_daily_rental_summary %>%
+  cor()
+num_cor_matrix
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
+1.  check for missingness
+2.  Check the column types and the values within the columns to make sure they make sense (basic summary stats for numeric columns and check the unique values for the categorical variables).
+3.  Convert the Date column into an actual date (if need be). Recall the lubridate package.
+4.  Turn the character variables (Seasons, Holiday, and Functioning Day) into factors.
+5.  Lastly, rename the all the variables to have easy to use names (I use lower snake case but whatever you’d like is fine)
+6.  Create summary statistics (especially related to the bike rental count). These should be done across your categorical variables as well. You should notice something about the Functioning Day variable. Subset the data appropriately based on that.
+7. To simplify our analysis, we’ll summarize across the hours so that each day has one observation
+associated with it.
+• (I’m using my new names here. Your names may not match and that’s ok!) Let’s group_by()
+the date, seasons, and holiday variables.
+• Find the sum of the bike_count, rainfall, and snowfall variables
+• Find the mean of all the weather related variables.
+• This will be our new data that we’ll analyze!
+8. Recreate your basic summary stats and then create some plots to explore relationships. Report correlation
+between your numeric variables as well.
+
+```{r}
+
+bikes <- readr::read_csv("https://www4.stat.ncsu.edu/~online/datasets/SeoulBikeData.csv", locale = locale(encoding = "latin1"))
+bikes
+
+bikes$Date <- as.Date((bikes$Date), '%d/%m/%Y')
+bikes$Date <- format(bikes$Date, '%m/%d/%Y')
+
+bikes <- bikes %>%
+  mutate(Seasons = as.factor(Seasons),
+         Holiday = as.factor(Holiday),
+         `Functioning Day` = as.factor(`Functioning Day`))
+
+bikes <- bikes %>%
+  clean_names()
+```
+
+
+
