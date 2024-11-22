@@ -2,6 +2,9 @@
 title: "Week 8 - Basic Modeling Practice"
 author: "John Tuong"
 format: html
+execute: 
+  warning: false
+  error: TRUE
 editor: visual
 editor_options: 
   chunk_output_type: console
@@ -23,10 +26,10 @@ editor_options:
 
 ```{r}
 # Installed packages
-install.packages("tidyverse")
-install.packages("tidymodels") # For use of tidymodel functions
-install.packages("lubridate")
-install.packages("janitor")
+# install.packages("tidyverse")
+# install.packages("tidymodels") # For use of tidymodel functions
+# install.packages("lubridate")
+# install.packages("janitor")
 ```
 
 ```{r}
@@ -381,20 +384,3 @@ final_model_coefficients
 
 
 
-
-```{r}
-
-bikes <- readr::read_csv("https://www4.stat.ncsu.edu/~online/datasets/SeoulBikeData.csv", locale = locale(encoding = "latin1"))
-bikes
-
-bikes$Date <- as.Date((bikes$Date), '%d/%m/%Y')
-bikes$Date <- format(bikes$Date, '%m/%d/%Y')
-
-bikes <- bikes %>%
-  mutate(Seasons = as.factor(Seasons),
-         Holiday = as.factor(Holiday),
-         `Functioning Day` = as.factor(`Functioning Day`))
-
-bikes <- bikes %>%
-  clean_names()
-```
